@@ -293,61 +293,7 @@ The application normalizes PostgreSQL URLs internally for the `psycopg` driver.
 
 ---
 
-## Screenshots
 
-Screenshots can be added to the repository later:
-
-```text
-assets/screenshots/home.png
-assets/screenshots/essay-form.png
-assets/screenshots/result.png
-```
-
-Recommended screenshots for portfolio presentation:
-
-1. Login / registration page
-2. Main task page with source text
-3. Essay writing form with timer
-4. Result page with criteria and feedback
-
----
-
-## Roadmap
-
-- Teacher dashboard
-- Attempt history page
-- Student progress analytics
-- Export attempts to CSV
-- Admin interface for task management
-- Support for multiple exam formats
-- More detailed grammar and punctuation diagnostics
-- Comparison between student versions before and after revision
-
----
-
-## Security Notes
-
-Do not commit the following files:
-
-```text
-.env
-*.db
-.venv/
-__pycache__/
-.DS_Store
-```
-
-The repository should contain `.env.example`, but not real API keys, database URLs, or production secrets.
-
----
-
-## Project Status
-
-MVP / portfolio version.
-
-The project demonstrates how AI can be integrated into an educational workflow to automate repetitive assessment tasks and provide fast feedback to students.
-
----
 
 ## Author
 
