@@ -7,15 +7,6 @@
 <p align="center">
   AI-powered web application for checking Russian OGE essays and giving criterion-based feedback.
 </p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.11%2B-blue" alt="Python" />
-  <img src="https://img.shields.io/badge/FastAPI-Backend-009688" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/OpenAI-LLM-black" alt="OpenAI" />
-  <img src="https://img.shields.io/badge/SQLite%20%2F%20PostgreSQL-Database-blue" alt="Database" />
-  <img src="https://img.shields.io/badge/Jinja2-Templates-orange" alt="Jinja2" />
-</p>
-
 ---
 
 ## Overview
