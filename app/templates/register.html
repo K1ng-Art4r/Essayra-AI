@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-card-wrap">
+        <div class="card auth-card">
+            <div class="auth-badge">Регистрация</div>
+
+            <div class="auth-head">
+                <h2 class="auth-title">Создай аккаунт</h2>
+                <p class="auth-text">
+                    Зарегистрируйся, чтобы пользоваться тренажёром, сохранять попытки и работать с заданиями в одном месте.
+                </p>
+            </div>
+
+            {% if error %}
+            <div class="inline-error">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="post" action="/register" class="auth-form auth-form-vertical">
+                <div class="auth-grid auth-grid-double">
+                    <label class="auth-label">
+                        <span>Email</span>
+                        <input
+                            type="email"
+                            name="email"
+                            class="auth-input"
+                            placeholder="example@mail.com"
+                            required
+                        >
+                    </label>
+
+                    <label class="auth-label">
+                        <span>Nickname</span>
+                        <input
+                            type="text"
+                            name="nickname"
+                            class="auth-input"
+                            placeholder="Ваш nickname"
+                            required
+                        >
+                    </label>
+
+                    <label class="auth-label">
+                        <span>Пароль</span>
+                        <input
+                            type="password"
+                            name="password"
+                            class="auth-input"
+                            placeholder="Минимум 6 символов"
+                            required
+                        >
+                    </label>
+
+                    <label class="auth-label">
+                        <span>Повтори пароль</span>
+                        <input
+                            type="password"
+                            name="password_repeat"
+                            class="auth-input"
+                            placeholder="Повторите пароль"
+                            required
+                        >
+                    </label>
+                </div>
+
+                <div class="auth-actions">
+                    <button type="submit" class="button primary auth-submit">Зарегистрироваться</button>
+                </div>
+            </form>
+
+            <div class="auth-footer">
+                <span>Уже есть аккаунт?</span>
+                <a href="/login">Войти</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

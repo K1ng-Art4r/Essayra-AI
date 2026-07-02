@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div id="timer-chip" class="timer-chip hidden" aria-live="polite">
+    <div class="timer-chip-label">Осталось времени</div>
+    <div id="timer-value" class="timer-chip-value">60:00</div>
+</div>
+
+<div class="card hero-card">
+    <div class="row">
+        <div>
+            <div class="eyebrow">Случайный вариант</div>
+            <h2 class="card-title">Выбери тему и начни работу</h2>
+        </div>
+        <a class="button secondary" href="/task/random" id="new-task-link">Другое задание</a>
+    </div>
+    <p class="hero-text">
+        Выбери тему на которую будешь писать сочинение. После нажатия на кнопку «НАЧАТЬ» запустится таймер на 1 час 20 минут,
+        и появится поле для ввода сочинения.
+    </p>
+</div>
+
+{% if task_set %}
+<div class="card">
+    <div class="section-head">
+        <h3>Исходный текст</h3>
+    </div>
+    <div class="text-box preformatted">{{ task_set.source_text }}</div>
+
+    <div class="section-head section-head-spaced">
+        <h3>Правила</h3>
+    </div>
+    <div class="rules-box preformatted">{{ task_set.instructions }}</div>
+</div>
+
+<div class="card">
+    <form
+        method="post"
+        action="/evaluate"
+        id="essay-form"
+        data-task-set-id="{{ task_set.id }}"
+    >
+        <input type="hidden" name="topic_id" id="topic-id-hidden" value="{{ selected_topic_id or '' }}">
+
+        <div class="section-head">
+            <h3>Выбери одну тему</h3>
+            <div class="soft-note">После старта тему уже нельзя менять</div>
+        </div>
+
+        <div class="topics-list" id="topics-list">
+            {% for topic in topics %}
+            <label class="topic-option">
+                <input
+                    type="radio"
+                    name="topic_choice"
+                    value="{{ topic.id }}"
+                    {% if selected_topic_id == topic.id %}checked{% endif %}
+                    required
+                >
+                <div class="topic-option-body">
+                    <div class="topic-option-top">
+                        <div class="topic-badge">{{ topic.topic_code }}</div>
+                    </div>
+                    <div class="topic-title">{{ topic.title }}</div>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="start-panel" id="start-panel">
+            <div class="start-panel-copy">
+                <div class="start-panel-title">Когда будешь готов, запускай таймер</div>
+                <div class="start-panel-text">
+                    На работу даётся 1 час. После старта откроется поле для сочинения.
+                </div>
+            </div>
+            <button type="button" class="button primary large" id="start-button">НАЧАТЬ</button>
+        </div>
+
+        <div id="selection-error" class="inline-error hidden">
+            Сначала выбери тему.
+        </div>
+
+        <div class="essay-section hidden" id="essay-section">
+            <div class="section-head section-head-spaced">
+                <h3>Текст сочинения</h3>
+                <div class="soft-note">Минимум 70 слов</div>
+            </div>
+
+            <textarea
+                name="essay_text"
+                id="essay-text"
+                rows="16"
+                placeholder="Напиши здесь своё сочинение..."
+                required
+            >{{ essay_text }}</textarea>
+
+            <div class="form-footer">
+                <div class="hint" id="submit-hint">
+                    После отправки кнопка станет неактивной, пока идёт проверка.
+                </div>
+                <button class="button primary submit-button" type="submit" id="submit-button">
+                    Отправить на проверку
+                </button>
+            </div>
+
+            <div class="loading-note hidden" id="loading-note">
+                Сочинение отправлено на проверку. Ждём результат...
+            </div>
+        </div>
+    </form>
+</div>
+{% else %}
+<div class="card">
+    <p class="muted">В базе пока нет заданий.</p>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="card error-box">
+    <p>{{ error }}</p>
+</div>
+{% endif %}
+
+<div id="timeout-modal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-card">
+        <div class="modal-icon">⌛</div>
+        <h3>Время вышло</h3>
+        <p>
+            Ты не успел закончить сочинение за 1 час. В следующий раз лучше следить за временем.
+        </p>
+        <a href="/" class="button primary" id="timeout-home-button">На главный экран</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("essay-form");
+    if (!form) return;
+
+    const taskSetId = form.dataset.taskSetId;
+    const timerKey = `ai_oge_timer_${taskSetId}`;
+
+    const radios = Array.from(document.querySelectorAll('input[name="topic_choice"]'));
+    const hiddenTopicInput = document.getElementById("topic-id-hidden");
+    const startButton = document.getElementById("start-button");
+    const startPanel = document.getElementById("start-panel");
+    const essaySection = document.getElementById("essay-section");
+    const essayText = document.getElementById("essay-text");
+    const submitButton = document.getElementById("submit-button");
+    const timerChip = document.getElementById("timer-chip");
+    const timerValue = document.getElementById("timer-value");
+    const loadingNote = document.getElementById("loading-note");
+    const selectionError = document.getElementById("selection-error");
+    const timeoutModal = document.getElementById("timeout-modal");
+    const newTaskLink = document.getElementById("new-task-link");
+    const timeoutHomeButton = document.getElementById("timeout-home-button");
+
+    const TIMER_DURATION_MS = 80 * 60 * 1000;
+
+    let timerInterval = null;
+    let isStarted = false;
+    let isSubmitting = false;
+
+    function getSelectedRadio() {
+        return document.querySelector('input[name="topic_choice"]:checked');
+    }
+
+    function saveTimer(deadline, topicId) {
+        localStorage.setItem(
+            timerKey,
+            JSON.stringify({
+                deadline,
+                topicId,
+            })
+        );
+    }
+
+    function readTimer() {
+        const raw = localStorage.getItem(timerKey);
+        if (!raw) return null;
+
+        try {
+            return JSON.parse(raw);
+        } catch (_error) {
+            localStorage.removeItem(timerKey);
+            return null;
+        }
+    }
+
+    function clearTimer() {
+        localStorage.removeItem(timerKey);
+
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+
+    function hideTimerChip() {
+        timerChip.classList.add("hidden");
+        timerChip.classList.remove("active");
+    }
+
+    function formatTime(ms) {
+        const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        if (hours > 0) {
+            return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+        }
+
+        return `${minutes}:${String(seconds).padStart(2, "0")}`;
+    }
+
+    function showEssaySection() {
+        essaySection.classList.remove("hidden");
+        startPanel.classList.add("hidden");
+        timerChip.classList.remove("hidden");
+        timerChip.classList.add("active");
+    }
+
+    function lockTopicChoice(selectedTopicId) {
+        hiddenTopicInput.value = selectedTopicId;
+
+        radios.forEach((radio) => {
+            radio.checked = radio.value === String(selectedTopicId);
+            radio.disabled = true;
+        });
+
+        form.classList.add("topics-locked");
+    }
+
+    function startCountdown(deadline, topicId) {
+        isStarted = true;
+        showEssaySection();
+        lockTopicChoice(topicId);
+        updateTimer(deadline);
+
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+
+        timerInterval = setInterval(() => {
+            updateTimer(deadline);
+        }, 1000);
+    }
+
+    function disableFormByTimeout() {
+        startButton.disabled = true;
+        submitButton.disabled = true;
+        essayText.disabled = true;
+
+        radios.forEach((radio) => {
+            radio.disabled = true;
+        });
+    }
+
+    function showTimeoutModal() {
+        timeoutModal.classList.remove("hidden");
+        timeoutModal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("modal-open");
+    }
+
+    function handleTimeout() {
+        if (isSubmitting) return;
+
+        clearTimer();
+        disableFormByTimeout();
+        showTimeoutModal();
+    }
+
+    function updateTimer(deadline) {
+        const remaining = Number(deadline) - Date.now();
+
+        if (remaining <= 0) {
+            timerValue.textContent = "0:00";
+            handleTimeout();
+            return;
+        }
+
+        timerValue.textContent = formatTime(remaining);
+    }
+
+    function startFlow() {
+        const selected = getSelectedRadio();
+
+        if (!selected) {
+            selectionError.classList.remove("hidden");
+            return;
+        }
+
+        selectionError.classList.add("hidden");
+
+        const deadline = Date.now() + TIMER_DURATION_MS;
+        saveTimer(deadline, selected.value);
+        startCountdown(deadline, selected.value);
+
+        if (essayText) {
+            essayText.focus();
+        }
+    }
+
+    function clearAndLeave() {
+        clearTimer();
+        document.body.classList.remove("modal-open");
+    }
+
+    startButton.addEventListener("click", startFlow);
+
+    radios.forEach((radio) => {
+        radio.addEventListener("change", () => {
+            selectionError.classList.add("hidden");
+        });
+    });
+
+    form.addEventListener("submit", (event) => {
+        if (!isStarted) {
+            event.preventDefault();
+            selectionError.classList.remove("hidden");
+            return;
+        }
+
+        if (submitButton.disabled) {
+            event.preventDefault();
+            return;
+        }
+
+        const selected = getSelectedRadio();
+        if (!selected) {
+            event.preventDefault();
+            selectionError.classList.remove("hidden");
+            return;
+        }
+
+        hiddenTopicInput.value = selected.value;
+        isSubmitting = true;
+
+        clearTimer();
+        hideTimerChip();
+
+        submitButton.disabled = true;
+        submitButton.classList.add("is-loading");
+        submitButton.textContent = "Проверяем...";
+        loadingNote.classList.remove("hidden");
+    });
+
+    if (newTaskLink) {
+        newTaskLink.addEventListener("click", clearAndLeave);
+    }
+
+    if (timeoutHomeButton) {
+        timeoutHomeButton.addEventListener("click", clearAndLeave);
+    }
+
+    const savedTimer = readTimer();
+    if (savedTimer && savedTimer.topicId) {
+        const matchingRadio = radios.find((radio) => radio.value === String(savedTimer.topicId));
+
+        if (matchingRadio) {
+            matchingRadio.checked = true;
+
+            if (Number(savedTimer.deadline) <= Date.now()) {
+                handleTimeout();
+            } else {
+                startCountdown(savedTimer.deadline, savedTimer.topicId);
+            }
+        } else {
+            clearTimer();
+        }
+    }
+});
+</script>
+{% endblock %}

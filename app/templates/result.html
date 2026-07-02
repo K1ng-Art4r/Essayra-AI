@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div id="result-page-meta" data-timer-key="ai_oge_timer_{{ task_set.id if task_set else '' }}"></div>
+
+<div class="card result-hero-card">
+    <div class="row">
+        <div>
+            <div class="eyebrow">Проверка завершена</div>
+            <h2 class="card-title">Результат сочинения</h2>
+        </div>
+        <a class="button secondary" href="/task/random">Новое задание</a>
+    </div>
+
+    <div class="topic-result">
+        <div class="topic-badge">{{ topic.topic_code }}</div>
+        <div class="topic-title">{{ topic.title }}</div>
+    </div>
+
+    <div class="score-box">
+        <div>
+            <div class="score-label">Итоговый балл</div>
+            <div class="score-value">{{ result.totalScore }} / 20</div>
+        </div>
+        <div class="score-side">
+            <div>Слов: <strong>{{ result.wordCount }}</strong></div>
+            {% if result.notGraded %}
+                <div class="danger-text">Работа не оценивается</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if result.notGraded %}
+    <div class="warning-box">
+        {{ result.notGradedReason }}
+    </div>
+    {% endif %}
+
+    {% if result.wordCount < 140 %}
+    <div class="info-box">
+        Для одной творческой работы без изложения критерии ГК1-ГК4 и ФК1 по официальному правилу оцениваются только при объёме 140+ слов.
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="section-head">
+        <h3>Критерии</h3>
+    </div>
+
+    <div class="criteria-grid">
+        {% for item in criteria_rows %}
+        <div class="criterion-card">
+            <div class="criterion-head">
+                <span class="criterion-code">{{ item.code }}</span>
+                <span class="criterion-score">{{ item.score }}</span>
+            </div>
+            <h3>{{ item.title }}</h3>
+            <p>{{ item.explanation }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="section-head">
+        <h3>Общий комментарий</h3>
+    </div>
+    <p class="overall-comment">{{ result.overallComment }}</p>
+</div>
+
+<div class="card">
+    <div class="section-head">
+        <h3>Исходный текст</h3>
+    </div>
+    <div class="text-box preformatted">{{ task_set.source_text }}</div>
+</div>
+
+<div class="card">
+    <div class="section-head">
+        <h3>Текст ученика</h3>
+    </div>
+    <div class="essay-box preformatted">{{ essay_text }}</div>
+</div>
+
+<div class="actions-row">
+    <a class="button primary" href="/task/random">Проверить новое задание</a>
+    <a class="button secondary" href="/new">На главную</a>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const meta = document.getElementById("result-page-meta");
+    if (!meta) return;
+
+    const timerKey = meta.dataset.timerKey;
+    if (timerKey) {
+        localStorage.removeItem(timerKey);
+    }
+});
+</script>
+{% endblock %}
